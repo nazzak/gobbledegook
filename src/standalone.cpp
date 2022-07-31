@@ -97,6 +97,8 @@
 #include <thread>
 #include <sstream>
 
+#include <vector>
+
 #include "../include/Gobbledegook.h"
 
 //
@@ -116,6 +118,9 @@ static uint8_t serverDataBatteryLevel = 78;
 // The text string ("text/string") used by our custom text string service (see Server.cpp)
 static std::string serverDataTextString = "Hello, world!";
 
+// The barcode string ("barcode/string")
+static std::string serverDataBarcodeString = "";
+
 //
 // Logging
 //
@@ -134,9 +139,27 @@ LogLevel logLevel = Normal;
 // Our full set of logging methods (we just log to stdout)
 //
 // NOTE: Some methods will only log if the appropriate `logLevel` is set
-void LogDebug(const char *pText) { if (logLevel <= Debug) { std::cout << "  DEBUG: " << pText << std::endl; } }
-void LogInfo(const char *pText) { if (logLevel <= Verbose) { std::cout << "   INFO: " << pText << std::endl; } }
-void LogStatus(const char *pText) { if (logLevel <= Normal) { std::cout << " STATUS: " << pText << std::endl; } }
+void LogDebug(const char *pText)
+{
+	if (logLevel <= Debug)
+	{
+		std::cout << "  DEBUG: " << pText << std::endl;
+	}
+}
+void LogInfo(const char *pText)
+{
+	if (logLevel <= Verbose)
+	{
+		std::cout << "   INFO: " << pText << std::endl;
+	}
+}
+void LogStatus(const char *pText)
+{
+	if (logLevel <= Normal)
+	{
+		std::cout << " STATUS: " << pText << std::endl;
+	}
+}
 void LogWarn(const char *pText) { std::cout << "WARNING: " << pText << std::endl; }
 void LogError(const char *pText) { std::cout << "!!ERROR: " << pText << std::endl; }
 void LogFatal(const char *pText) { std::cout << "**FATAL: " << pText << std::endl; }
@@ -152,14 +175,14 @@ void signalHandler(int signum)
 {
 	switch (signum)
 	{
-		case SIGINT:
-			LogStatus("SIGINT recieved, shutting down");
-			ggkTriggerShutdown();
-			break;
-		case SIGTERM:
-			LogStatus("SIGTERM recieved, shutting down");
-			ggkTriggerShutdown();
-			break;
+	case SIGINT:
+		LogStatus("SIGINT recieved, shutting down");
+		ggkTriggerShutdown();
+		break;
+	case SIGTERM:
+		LogStatus("SIGTERM recieved, shutting down");
+		ggkTriggerShutdown();
+		break;
 	}
 }
 
@@ -190,6 +213,10 @@ const void *dataGetter(const char *pName)
 	else if (strName == "text/string")
 	{
 		return serverDataTextString.c_str();
+	}
+	else if (strName == "barcode/string")
+	{
+		return serverDataBarcodeString.c_str();
 	}
 
 	LogWarn((std::string("Unknown name for server data getter request: '") + pName + "'").c_str());
@@ -253,7 +280,7 @@ int main(int argc, char **ppArgv)
 		{
 			logLevel = Verbose;
 		}
-		else if  (arg == "-d")
+		else if (arg == "-d")
 		{
 			logLevel = Debug;
 		}
@@ -294,15 +321,29 @@ int main(int argc, char **ppArgv)
 		return -1;
 	}
 
+	std::vector<std::string> vecBRC;
+	vecBRC.push_back("Barcode 1");
+	vecBRC.push_back("Barcode 2");
+	vecBRC.push_back("Barcode 3");
+	vecBRC.push_back("Barcode 4");
+	vecBRC.push_back("Barcode 5");
+	vecBRC.push_back("Barcode 6");
+
+	size_t i = 0;
+
 	// Wait for the server to start the shutdown process
 	//
 	// While we wait, every 15 ticks, drop the battery level by one percent until we reach 0
 	while (ggkGetServerRunState() < EStopping)
 	{
-		std::this_thread::sleep_for(std::chrono::seconds(15));
+		std::this_thread::sleep_for(std::chrono::seconds(5));
 
-		serverDataBatteryLevel = std::max(serverDataBatteryLevel - 1, 0);
-		ggkNofifyUpdatedCharacteristic("/com/gobbledegook/battery/level");
+		// serverDataBatteryLevel = std::max(serverDataBatteryLevel - 1, 0);
+		// ggkNofifyUpdatedCharacteristic("/com/gobbledegook/battery/level");
+
+		i = i < vecBRC.size() ? i : 0;
+		serverDataBarcodeString = vecBRC.at(i++);
+		ggkNofifyUpdatedCharacteristic("/com/gobbledegook/barcode/string");
 	}
 
 	// Wait for the server to come to a complete stop (CTRL-C from the command line)
@@ -312,5 +353,5 @@ int main(int argc, char **ppArgv)
 	}
 
 	// Return the final server health status as a success (0) or error (-1)
-  	return ggkGetServerHealth() == EOk ? 0 : 1;
+	return ggkGetServerHealth() == EOk ? 0 : 1;
 }
